@@ -1,0 +1,112 @@
+---
+title: "Paris COVID19 Lockdown"
+author: "David Jackson"
+date: "10/4/2020"
+output: 
+  html_document: 
+    fig_width: 9
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(scales)
+library(RSQLite)
+theme_set(theme_light())
+
+```
+
+```{r}
+rm(list=ls())
+source("../DATA/movavg.R")
+db <- db <- dbConnect(RSQLite::SQLite(),dbname= "../COVIDDB/COVID.sqlite3")
+df <- dbGetQuery(db,"select * from ECDC")
+df <- subset(df,geoID =="FR" & Reported >="2020-03-04" )
+df$Reported <- lubridate::ymd(df$Reported)
+#
+df <- df[order(df$Reported),]
+df$MAC <- movingAverage(df$Cases,14)
+df$MAD <- movingAverage(df$Deaths,14)
+df$MAD30 <- movingAverage(df$Deaths,60)
+```
+
+### France Daily Cases and Deaths
+
+```{r}
+ggplot(df) +geom_line(aes(x=Reported,y=Cases,col="Cases")) +
+  geom_point(aes(x=Reported,y=Cases)) +
+  geom_smooth(aes(x=Reported,y=Cases,col="Loess"),span=0.25) +
+  labs(title="France Daily Covid19 Cases")
+```
+
+```{r}
+ggplot(df) +geom_line(aes(x=Reported,y=Deaths,col="Deaths")) +
+  geom_point(aes(x=Reported,y=Deaths)) +
+  geom_smooth(aes(x=Reported,y=Deaths,col="Loess"),span=0.25) +
+  labs(title="France Daily Covid19 Deaths")
+```
+
+#### Non-Moving Average By Week and By Month
+
+```{r}
+df$Monthly <- as.Date(cut(df$Reported,
+  breaks = "month"))
+df$Weekly <- as.Date(cut(df$Reported,
+  breaks = "week",
+  start.on.monday = FALSE))
+
+```
+```{r}
+Weekly_Cases <- aggregate(Cases~Weekly,df,FUN=sum)
+Weekly_Deaths <- aggregate(Deaths~Weekly,df,FUN=sum)
+Weekly_Cases$DRate <- Weekly_Deaths$Deaths/Weekly_Cases$Cases
+Weekly_Cases$LivedSaved <- Weekly_Cases$Cases * (max(Weekly_Cases$DRate) - Weekly_Cases$DRate) * 100
+
+```
+```{r}
+ggplot(Weekly_Cases) + geom_col(aes(x=Weekly,y=Cases)) + 
+  labs(title="Weekly Cases",x="Date Reported", y="Weekly Cases") +
+  geom_hline(yintercept = mean(Weekly_Cases$Cases),col="red",lwd=1.5) +
+  scale_y_continuous(labels = scales::comma) 
+
+ggplot(Weekly_Deaths) + geom_col(aes(x=Weekly,y=Deaths)) + 
+  labs(title="Weekly Deaths",x="Date Reported", y="Weekly Deaths") +
+  scale_y_continuous(labels = scales::comma) +
+  geom_hline(yintercept = mean(Weekly_Deaths$Deaths),col="red",lwd=1.5)
+``` 
+
+#### Monthly Cases and Deaths
+
+```{r}
+
+Monthly_Cases <- aggregate(Cases~Monthly,df,FUN=sum)
+Monthly_Deaths <- aggregate(Deaths~Monthly,df,FUN=sum)
+Monthly_Cases$DRate <- Monthly_Deaths$Deaths/Monthly_Cases$Cases
+Monthly_Cases$LivedSaved <- Monthly_Cases$Cases * (max(Monthly_Cases$DRate) - Monthly_Cases$DRate) * 100
+```
+```{r}
+ggplot(Monthly_Cases) + geom_col(aes(x=Monthly,y=Cases)) +
+  labs(title="Monthly Cases") +
+  scale_y_continuous(labels = scales::comma)
+
+ggplot(Monthly_Deaths) + geom_col(aes(x=Monthly,y=Deaths)) +
+  labs(title="Monthly Deaths") +
+  scale_y_continuous(labels = scales::comma)
+```
+
+### Plots of Cumulative Cases and Deaths
+
+```{r}
+df <- df[order(df$Reported),]
+df$cumCases <- cumsum(df$Cases)
+df$cumDeaths <- cumsum(df$Deaths)
+```
+```{r}
+ggplot(df) + geom_line(aes(x=Reported,y=cumCases),col="red") +
+  labs(title="France's  Cumulative Cases") +
+  scale_y_continuous(labels = scales::comma)
+
+ggplot(df) + geom_line(aes(x=Reported,y=cumDeaths),col="red") +
+  labs(title="France's  Cumulative Deaths")
+```
+
