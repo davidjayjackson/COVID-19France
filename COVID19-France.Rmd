@@ -1,7 +1,7 @@
 ---
 title: "Paris COVID19 Lockdown"
 author: "David Jackson"
-date: "10/4/2020"
+date: "11/16/2020"
 output: 
   html_document: 
     fig_width: 9
