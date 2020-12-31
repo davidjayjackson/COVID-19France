@@ -1,0 +1,177 @@
+---
+title: 'Great Britain: COVID-19 Analysis'
+author: "David Jackson"
+date: "12/31/2020 03:40PM EDT"
+output: 
+  html_document: 
+    fig_width: 8
+    fig_height: 5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,message = FALSE,warning = FALSE)
+library(ggplot2)
+library(scales)
+library(RSQLite)
+library(plotly)
+library(dplyr)
+library(forecast)
+# theme_set(theme_linedraw() + theme(panel.grid = element_line(linetype = 'dashed')))
+theme_set(theme_light())
+
+```
+```{r}
+rm(list=ls())
+source("../DATA/movavg.R")
+db <- db <- dbConnect(RSQLite::SQLite(),dbname= "../COVID-19-DB/OURWORLD.sqlite3")
+EU <- dbGetQuery(db,"select * from JHU ")
+EU$date <- as.Date(EU$date)
+EU <- EU[order(EU$date),]
+df <- subset(EU,location =="France")
+
+df$CMA <- ma(df$new_cases,14,centre=TRUE)
+df$DMA <- ma(df$new_deaths,14,centre=TRUE)
+dbDisconnect(db)
+```
+
+#### Daily COVID-19 Daily Cases
+
+```{r}
+df %>% filter(date >="2020-02-27" & new_cases >0) %>%
+ggplot() + geom_line(aes(x=date,y=new_cases)) +
+  geom_smooth(aes(x=date,y=new_cases),span=0.25) +
+  labs(title="United Kingdom Daily Dailycases")
+
+ggplot(df) + geom_col(aes(x=date,y=CMA,col=CMA)) + 
+  labs(title="Fourteen Day Moving Average: Cases")
+
+```
+
+#### Daily Deaths
+
+```{r}
+df %>% filter(date>="2020-03-20" & new_deaths>0) %>%
+ggplot() +  geom_line(aes(x=date,y=new_deaths)) +
+  geom_smooth(aes(x=date,y=new_deaths),span=0.25) +
+  labs(title="United Kingdom Daily Deaths") 
+
+ggplot(df) + geom_col(aes(x=date,y=DMA,fill=DMA)) + 
+  labs(title="Fourteen Day Moving Average: Deaths")
+  
+```
+
+#### Non-Moving Average By Week and By Month
+
+```{r}
+df$Monthly <- as.Date(cut(df$date,
+  breaks = "month"))
+df$Weekly <- as.Date(cut(df$date,
+  breaks = "week",
+  start.on.monday = FALSE))
+
+```
+```{r}
+Weekly_new_cases <- aggregate(new_cases~Weekly,df,FUN=sum)
+Weekly_new_deaths <- aggregate(new_deaths~Weekly,df,FUN=sum)
+Weekly_new_cases$DRate <- Weekly_new_deaths$new_deaths/Weekly_new_cases$new_cases
+
+```
+```{r}
+ggplot(Weekly_new_cases) + geom_col(aes(x=Weekly,y=new_cases)) + 
+  labs(title="Weekly Cases",x="date date", y="Weekly Cases") +
+  geom_hline(yintercept = mean(Weekly_new_cases$new_cases),col="red",lwd=1.5) +
+  scale_y_continuous(labels = scales::comma) 
+
+
+ggplot(Weekly_new_deaths) + geom_col(aes(x=Weekly,y=new_deaths)) + 
+  labs(title="Weekly new_deaths",x="date date", y="Weekly Deaths") +
+  scale_y_continuous(labels = scales::comma) +
+  geom_hline(yintercept = mean(Weekly_new_deaths$new_deaths),col="red",lwd=1.5)
+``` 
+
+#### Monthly new_cases and new_deaths
+
+```{r}
+
+Monthly_new_cases <- aggregate(new_cases~Monthly,df,FUN=sum)
+Monthly_new_deaths <- aggregate(new_deaths~Monthly,df,FUN=sum)
+Monthly_new_cases$DRate <- Monthly_new_deaths$new_deaths/Monthly_new_cases$new_cases
+
+```
+```{r}
+ggplot(Monthly_new_cases) + geom_col(aes(x=Monthly,y=new_cases)) +
+  labs(title="Monthly Cases") +
+  scale_y_continuous(labels = scales::comma)
+
+ggplot(Monthly_new_deaths) + geom_col(aes(x=Monthly,y=new_deaths)) +
+  labs(title="Monthly Deaths") +
+  scale_y_continuous(labels = scales::comma)
+```
+
+#### United Kingdom in the EU: Covid-19 Cases and Deaths
+* EU Counties with Population between 30,000,000 and 85,000,000
+
+```{r}
+
+EU1 <- subset(EU,location == c("Germany","France","Italy","United Kingdom","Spain","Poland"))
+
+EUTotal <-EU1 %>% group_by(location) %>% summarise(
+                                Case =sum(new_cases,na.rm=TRUE),
+                                Deaths = sum(new_deaths,na.rm=TRUE)) %>% na.omit()
+EUTotal$Rate <- EUTotal$Deaths/EUTotal$Case
+```
+
+#### Plots of Total Cases and Deaths
+
+```{r}
+ggplot(EUTotal) + geom_col(aes(x=reorder(location,Case),y=Case)) + 
+  labs(title="Total Cases by Country",x="Countries",y="Total Cases") + scale_y_continuous(label=comma)
+
+ggplot(EUTotal) + geom_col(aes(x=reorder(location,Deaths),y=Deaths)) + 
+ labs(title="Total Deaths by Country",x="Countries",y="Total  Deaths") + scale_y_continuous(label=comma)
+
+```
+
+#### Total Cases  by Day.
+
+```{r}
+EU2 <- EU1 %>% filter(date >="2020-09-01")
+EU2 %>% ggplot(aes(x=date,y=new_cases,col="Cases"))+geom_line() + facet_wrap(~location,ncol = 2,scales="free_y") +
+  expand_limits(y=0)
+```
+
+#### Total Deaths  by Day.
+
+```{r}
+EU2 <- EU1 %>% filter(date >="2020-09-01")
+EU2 %>% ggplot(aes(x=date,y=new_deaths,col="Deaths"))+geom_line() + facet_wrap(~location,ncol = 2,scales="free_y") +expand_limits(y=0)
+  
+```
+
+### Cumlative Totals (Cases and Deaths) for United Kingdom
+* Total Cases and Deaths todate
+
+```{r}
+df %>% ggplot() + geom_col(aes(x=date,y=total_cases)) +
+  scale_y_continuous(labels = comma) +
+  labs(title="United Kingdom Cumulative Cases by Date")
+
+df %>% ggplot() + geom_col(aes(x=date,y=total_deaths)) +
+  scale_y_continuous(labels = comma) +
+  labs(title="United Kingdom Cumulative Deaths by Date")
+```
+
+#### Plot by Country
+
+```{r}
+EU1 %>% ggplot() + geom_line(aes(x=date,y=total_cases),col="red") +
+  scale_y_continuous(labels = comma) +
+  labs(title=" Cumulative Cases by Country") +
+  facet_wrap(~location,ncol = 2,scales="free_y")
+
+EU1 %>% ggplot() + geom_line(aes(x=date,y=total_deaths),col="red") +
+  scale_y_continuous(labels = comma) +
+  labs(title="Cumulative Deaths by Country") +
+  facet_wrap(~location,ncol = 2,scales="free_y")
+```
+
