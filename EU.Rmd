@@ -1,7 +1,7 @@
 ---
-title: 'Great Britain: COVID-19 Analysis'
+title: 'France: COVID-19 Analysis'
 author: "David Jackson"
-date: "01/03/2021 10:40PM EDT"
+date: "01/19/2021 11:20PM EDT"
 output: 
   html_document: 
     fig_width: 8
@@ -40,7 +40,7 @@ dbDisconnect(db)
 df %>% filter(date >="2020-02-27" & new_cases >0) %>%
 ggplot() + geom_line(aes(x=date,y=new_cases)) +
   geom_smooth(aes(x=date,y=new_cases),span=0.25) +
-  labs(title="United Kingdom Daily Dailycases")
+  labs(title="France Daily Dailycases")
 
 ggplot(df) + geom_col(aes(x=date,y=CMA,col=CMA)) + 
   labs(title="Fourteen Day Moving Average: Cases")
@@ -53,7 +53,7 @@ ggplot(df) + geom_col(aes(x=date,y=CMA,col=CMA)) +
 df %>% filter(date>="2020-03-20" & new_deaths>0) %>%
 ggplot() +  geom_line(aes(x=date,y=new_deaths)) +
   geom_smooth(aes(x=date,y=new_deaths),span=0.25) +
-  labs(title="United Kingdom Daily Deaths") 
+  labs(title="France Daily Deaths") 
 
 ggplot(df) + geom_col(aes(x=date,y=DMA,fill=DMA)) + 
   labs(title="Fourteen Day Moving Average: Deaths")
@@ -108,12 +108,12 @@ ggplot(Monthly_new_deaths) + geom_col(aes(x=Monthly,y=new_deaths)) +
   scale_y_continuous(labels = scales::comma)
 ```
 
-#### United Kingdom in the EU: Covid-19 Cases and Deaths
+#### France in the EU: Covid-19 Cases and Deaths
 * EU Counties with Population between 30,000,000 and 85,000,000
 
 ```{r}
 
-EU1 <- subset(EU,location == c("Germany","France","Italy","United Kingdom","Spain","Poland"))
+EU1 <- subset(EU,location == c("Germany","France","Italy","France","Spain","Poland"))
 
 EUTotal <-EU1 %>% group_by(location) %>% summarise(
                                 Case =sum(new_cases,na.rm=TRUE),
@@ -148,17 +148,17 @@ EU2 %>% ggplot(aes(x=date,y=new_deaths,col="Deaths"))+geom_line() + facet_wrap(~
   
 ```
 
-### Cumlative Totals (Cases and Deaths) for United Kingdom
+### Cumlative Totals (Cases and Deaths) for France
 * Total Cases and Deaths todate
 
 ```{r}
 df %>% ggplot() + geom_col(aes(x=date,y=total_cases)) +
   scale_y_continuous(labels = comma) +
-  labs(title="United Kingdom Cumulative Cases by Date")
+  labs(title="France Cumulative Cases by Date")
 
 df %>% ggplot() + geom_col(aes(x=date,y=total_deaths)) +
   scale_y_continuous(labels = comma) +
-  labs(title="United Kingdom Cumulative Deaths by Date")
+  labs(title="France Cumulative Deaths by Date")
 ```
 
 #### Plot by Country
